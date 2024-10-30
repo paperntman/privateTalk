@@ -12,19 +12,24 @@ import net.dv8tion.jda.api.entities.MessageHistory;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
+import net.dv8tion.jda.api.events.interaction.command.MessageContextInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.Command;
+import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.managers.channel.concrete.VoiceChannelManager;
 import net.dv8tion.jda.api.requests.GatewayIntent;
+import net.dv8tion.jda.api.utils.MemberCachePolicy;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class Main extends ListenerAdapter {
 
@@ -36,7 +41,11 @@ public class Main extends ListenerAdapter {
 
     public static void main(String[] args) {
         Dotenv dotenv = Dotenv.load();
-        JDA jda = JDABuilder.createDefault(dotenv.get("TOKEN")).enableIntents(GatewayIntent.MESSAGE_CONTENT).addEventListeners(new Main()).build();
+        JDA jda = JDABuilder.createDefault(dotenv.get("TOKEN"))
+                .enableIntents(GatewayIntent.MESSAGE_CONTENT, GatewayIntent.GUILD_MEMBERS)
+                .addEventListeners(new Main())
+                .setMemberCachePolicy(MemberCachePolicy.ALL)
+                .build();
     }
 
     @Override
@@ -51,12 +60,11 @@ public class Main extends ListenerAdapter {
             event.getGuild().updateCommands().addCommands(
                     Commands.slash("등록", "개인 공간 등록을 시작합니다."),
                     Commands.slash("완료", "개인 공간 등록을 완료합니다."),
-                    Commands.slash("삭제", "여기까지의 채팅을 삭제합니다.")
-                            .addOption(OptionType.USER, "대상", "삭제할 대상입니다. 모든 채팅을 지우려면 이 항목을 비워두세요.", false)
+                    Commands.message("여기까지 삭제")
             ).queue();
             return;
         }
-        if (event.getMessage().getContentRaw().startsWith("처단")){
+        if (event.getMessage().getContentRaw().startsWith("처단 ")){
             if(event.getMember().getIdLong() == event.getJDA().getSelfUser().getIdLong())
                 return;
             if (event.getMember().hasPermission(Permission.ADMINISTRATOR)){
@@ -68,6 +76,9 @@ public class Main extends ListenerAdapter {
                     event.getGuild().timeoutFor(event.getGuild().getMemberById(mention.getIdLong()), 5, TimeUnit.SECONDS).queue();
                     event.getChannel().sendMessage("처단 "+mention.getAsMention()+" !!!! \uD83D\uDD28").queue();
                 }
+            }else if(!event.getMessage().getMentions().getMentions(Message.MentionType.USER).isEmpty()){
+                event.getGuild().timeoutFor(event.getMember(), 5, TimeUnit.SECONDS).queue();
+                event.getChannel().sendMessage("처단 "+event.getMember().getAsMention()+" !!!! \uD83D\uDD28").queue();
             }
             return;
         }
@@ -89,20 +100,20 @@ public class Main extends ListenerAdapter {
             registrate(event);
         }else if (event.getName().equalsIgnoreCase("완료")){
             finish(event);
-        }else if (event.getName().equalsIgnoreCase("삭제")){
-            Message message = event.getHook().retrieveOriginal().complete().getReferencedMessage();
-            if (message == null){
-                event.getHook().sendMessage("삭제할 메시지의 시작을 선택해 주세요!").queue();
-                return;
-            }
-            User user = event.getOption
-            MessageHistory history = MessageHistory.getHistoryAfter(event.getChannel(), message.getId()).complete();
-            for (Message m : history.getRetrievedHistory()) {
-                if (m.getMember().getIdLong() == user.getIdLong()) {
+        }
+    }
 
-                }
+    @Override
+    public void onMessageContextInteraction(MessageContextInteractionEvent event) {
+        if (event.getMember().hasPermission(Permission.MESSAGE_MANAGE) || event.getTarget().getAuthor().getIdLong() == event.getMember().getIdLong())
+        event.reply("여기까지 삭제할게요!").complete().deleteOriginal().queueAfter(10, TimeUnit.SECONDS);
+        MessageHistory history = MessageHistory.getHistoryAfter(event.getChannel(), event.getTarget().getId()).complete();
+        for (Message m : history.getRetrievedHistory()) {
+            if(m.getAuthor().getIdLong() == event.getTarget().getAuthor().getIdLong()) {
+                m.delete().queue();
             }
         }
+        event.getTarget().delete().queueAfter(3, TimeUnit.SECONDS);
     }
 
     private static void finish(SlashCommandInteractionEvent event) {
