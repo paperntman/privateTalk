@@ -7,12 +7,15 @@ import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.ISnowflake;
 import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.MessageHistory;
+import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.Command;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.managers.channel.concrete.VoiceChannelManager;
 import net.dv8tion.jda.api.requests.GatewayIntent;
@@ -46,7 +49,9 @@ public class Main extends ListenerAdapter {
             }
             event.getGuild().updateCommands().addCommands(
                     Commands.slash("등록", "개인 공간 등록을 시작합니다."),
-                    Commands.slash("완료", "개인 공간 등록을 완료합니다.")
+                    Commands.slash("완료", "개인 공간 등록을 완료합니다."),
+                    Commands.slash("삭제", "여기까지의 채팅을 삭제합니다.")
+                            .addOption(OptionType.USER, "대상", "삭제할 대상입니다. 모든 채팅을 지우려면 이 항목을 비워두세요.", false)
             ).queue();
             return;
         }
@@ -68,6 +73,19 @@ public class Main extends ListenerAdapter {
             registrate(event);
         }else if (event.getName().equalsIgnoreCase("완료")){
             finish(event);
+        }else if (event.getName().equalsIgnoreCase("삭제")){
+            Message message = event.getHook().retrieveOriginal().complete().getReferencedMessage();
+            if (message == null){
+                event.getHook().sendMessage("삭제할 메시지의 시작을 선택해 주세요!").queue();
+                return;
+            }
+            User user = event.getOption
+            MessageHistory history = MessageHistory.getHistoryAfter(event.getChannel(), message.getId()).complete();
+            for (Message m : history.getRetrievedHistory()) {
+                if (m.getMember().getIdLong() == user.getIdLong()) {
+
+                }
+            }
         }
     }
 
