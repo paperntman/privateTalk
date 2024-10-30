@@ -5,6 +5,7 @@ import io.github.cdimascio.dotenv.Dotenv;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.entities.IMentionable;
 import net.dv8tion.jda.api.entities.ISnowflake;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageHistory;
@@ -53,6 +54,21 @@ public class Main extends ListenerAdapter {
                     Commands.slash("삭제", "여기까지의 채팅을 삭제합니다.")
                             .addOption(OptionType.USER, "대상", "삭제할 대상입니다. 모든 채팅을 지우려면 이 항목을 비워두세요.", false)
             ).queue();
+            return;
+        }
+        if (event.getMessage().getContentRaw().startsWith("처단")){
+            if(event.getMember().getIdLong() == event.getJDA().getSelfUser().getIdLong())
+                return;
+            if (event.getMember().hasPermission(Permission.ADMINISTRATOR)){
+                String[] s = event.getMessage().getContentRaw().split(" ");
+                if (s.length == 1) {
+                    return;
+                }
+                for (IMentionable mention : event.getMessage().getMentions().getMentions(Message.MentionType.USER)) {
+                    event.getGuild().timeoutFor(event.getGuild().getMemberById(mention.getIdLong()), 5, TimeUnit.SECONDS).queue();
+                    event.getChannel().sendMessage("처단 "+mention.getAsMention()+" !!!! \uD83D\uDD28").queue();
+                }
+            }
             return;
         }
         if(registrationChannel == null) return;
@@ -119,7 +135,7 @@ public class Main extends ListenerAdapter {
         }
         manager.queue();
         event.getHook().sendMessage("등록이 완료되었습니다! "+aPrivate.getAsMention()).complete().delete().queueAfter(3, TimeUnit.SECONDS);
-        registrationStart.forEach(i -> i.delete().queueAfter(3, TimeUnit.SECONDS, _ -> {}, _ -> System.out.println("failed!")));
+        registrationStart.forEach(i -> i.delete().queueAfter(3, TimeUnit.SECONDS));
         registrationStart.clear();
         registrationTarget.clear();
         registrationUser = null;
